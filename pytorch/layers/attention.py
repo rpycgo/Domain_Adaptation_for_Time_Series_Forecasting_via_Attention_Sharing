@@ -24,15 +24,17 @@ def exponential_scaled_dot_product(query: Tensor, key: Tensor) -> Tensor:
 
 
 class SharedAttention(nn.Module):
-    def __init__(self, feat_dim: int, hidden_dim: int, kernel_size: int) -> None:
+    def __init__(self, n_features: int, kernel_size: int):
         super().__init__()
         self.kernel_size = kernel_size
-
+        
         self.query = nn.Linear(
-            in_features=feat_dim, out_features=feat_dim
+            in_features=n_features,
+            out_features=n_features,
         )
         self.key = nn.Linear(
-            in_features=feat_dim, out_features=feat_dim
+            in_features=n_features,
+            out_features=n_features,
         )
 
     def forward(
@@ -41,13 +43,13 @@ class SharedAttention(nn.Module):
         """Shared Attention
 
         Args:
-            pattern (Tensor): pattern embeddings with shape `(B, M, T)`.
-            value (Tensor): values with shape `(B, D, T)`.
+            pattern (Tensor): pattern embeddings with shape (batch, seq_len, n_faetures).
+            value (Tensor): values with shape (batch, seq_len, n_features).
 
         Returns:
             Tuple[Tensor, Tuple[Tensor, Tensor]]:
-                - representations with shape `(B, D, T + 1)`.
-                - queries and keys with shape `(B, D, T)`.
+                - representations with shape (batch, seq_len + 1, n_features).
+                - queries and keys with shape (batch, seq_len, n_features).
         """
         query, key = self.query(pattern), self.key(pattern)
 
@@ -60,45 +62,15 @@ class SharedAttention(nn.Module):
         )
         return torch.cat([rep_in, rep_ex], dim=-1), (query, key)
 
-    def calc_attn(
-        self,
-        query: Tensor,
-        key: Tensor,
-        value: Tensor,
-        kernel_size: Union[int, Tuple[int, int]] = None,
-    ) -> Tensor:
-        """Calculate attention value
+    def interpolation(self, query, key):
+        return exponential_scaled_dot_product(query, key)
+    
+    def extrapolation(self, query, key):
 
-        Args:
-            query (Tensor): queries with shape `(B, D, T)`.
-            key (Tensor): keys with shape `(B, D, T)`.
-            value (Tensor): values with shape `(B, D, T)`.
-            kernel_size (Union[int, Tuple[int, int]], optional): kernel size used in encoder,
-                required in extrapolation mode.
 
-        Returns:
-            Tensor: attention values with shape `(B, D, T + 1)`.
-        """
-        if isinstance(kernel_size, tuple):
-            kernel_size = max(kernel_size)
-        if kernel_size:
-            unit_len = (kernel_size - 1) // 2
-            query = query[..., -1 - unit_len : -1 - unit_len + 1]
-            # ? why k, v shape = [..., 96]..?
-            key = key[..., kernel_size - unit_len - 1 : -1 - unit_len - 1]
-            value = value[..., kernel_size:-1]
-        attn_logits = torch.exp(
-            query.transpose(1, 2) @ key
-            - (query.transpose(1, 2) @ key)
-            * torch.eye(query.shape[-1], device=query.device)
-            / math.sqrt(query.shape[-1])
-        )
-        attn_scores = torch.softmax(attn_logits, dim=-1)
-        attn_values = (attn_scores @ value.transpose(1, 2)).transpose(1, 2)
-        return attn_values
 
 
 class SequenceGenerator(nn.Module):
-    def __init__(self, feat_dim: int, hidden_dim: int, kernel_size: int) -> None:
+    def __init__(self, n_features: int, hidden_dim: int, kernel_size: int) -> None:
         super().__init__()
         self.kernel_size = kernel_size

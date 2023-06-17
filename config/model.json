@@ -6,6 +6,9 @@
             "stride": 1,
             "dilation": 1
         }
+    },
+    "shared_attention": {
+        "local_window": 20
     }
     
 }
