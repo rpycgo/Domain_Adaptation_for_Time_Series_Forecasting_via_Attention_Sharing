@@ -1,7 +1,26 @@
+import numpy as np
 import torch
 import torch.nn as nn
 from torch import Tensor
 from typing import Tuple, Union
+
+
+def exponential_scaled_dot_product(query: Tensor, key: Tensor) -> Tensor:
+    attention = query @ key.permute(0, 2, 1)
+    seq_len, n_features = query.shape[1:]
+    correction = (
+        query[..., :seq_len] *\
+        torch.diagonal(key, dim1=1, dim2=2).unsqueeze(-1).permute(0, 2, 1)
+    )
+    attention -= correction
+    attention = torch.exp(attention / np.sqrt(n_features))
+    
+    divider = (
+        attention.sum(axis=1, keepdim=True) -\
+        torch.diagonal(attention, dim1=1, dim2=2).unsqueeze(-1).permute(0, 2, 1)
+    ).permute(0, 2, 1)
+
+    return attention / divider
 
 
 class SharedAttention(nn.Module):
