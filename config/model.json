@@ -1,0 +1,11 @@
+{
+    "encoder":  {
+        "temporal_convolutions": {
+            "out_channels": 64,
+            "kernel_sizes": [2, 4, 7, 11],
+            "stride": 1,
+            "dilation": 1
+        }
+    }
+    
+}
