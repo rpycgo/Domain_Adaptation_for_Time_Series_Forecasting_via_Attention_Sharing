@@ -20,6 +20,15 @@ class DomainDiscriminator:
         )
 
     def forward(self, query: Tensor, key: Tensor) -> Tuple[Tensor, Tensor]:
+        '''Domain Discriminator
+
+        Args:
+            query (Tensor): query with shape (batch, n_features, seq_len).
+            key (Tensor): key with shape (batch, n_features, seq_len).
+
+        Returns:
+            loss (CrossEntropyLoss): mean loss
+        '''
         domain_query = self.query(query)
         domain_key = self.key(key)
         loss = self.loss(domain_query, domain_key)
